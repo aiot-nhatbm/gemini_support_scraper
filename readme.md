@@ -1,4 +1,4 @@
-# Auto-Scraper Tool: Quick Start Guide
+# Gemini Auto-Scraper Tool: Quick Start Guide
 
 ## 1. Overview
 
