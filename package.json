@@ -1,0 +1,13 @@
+{
+    "name": "a2b-auto-scraper-tool",
+    "version": "1.0.0",
+    "description": "AI-Powered Web Scraper Generator Tool",
+    "main": "auto-scraper.js",
+    "scripts": {
+      "start": "node auto-scraper.js"
+    },
+    "dependencies": {
+      "@google/generative-ai": "^0.2.1",
+      "cheerio": "^1.0.0-rc.12"
+    }
+  }

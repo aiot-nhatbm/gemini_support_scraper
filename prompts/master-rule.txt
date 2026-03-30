@@ -1,0 +1,112 @@
+You are an expert Web Scraper. The provided HTML is a Product Detail Page (PDP).
+Your task is to extract CSS selectors and parsing logic for multiple fields based on their specific definitions.
+
+=== GLOBAL RULES ===
+1. CSS Selectors: Find the SINGLE MOST ACCURATE selector. ALWAYS use double quotes for attributes inside selectors (e.g., "input[name=\"code\"]").
+2. Optional 'parseLogic': Only provide the "parseLogic" string IF the default JS logic (mentioned in the field rules below) is INCORRECT for the element you found. If the default logic works perfectly, DO NOT output the "parseLogic" key for that field.
+3. ALWAYS write clean and optimized code. (add comments to explain the code if needed)
+
+=== MULTI-CASE & PLATFORM ANALYSIS ===
+You will receive MULTIPLE HTML files. Each file starts with a description from `cases.json` (e.g., "Normal product PC", "Product on Sale SP").
+1. Cross-Platform (PC vs SP): You MUST cover both PC and Smartphone (SP) modes. If the DOM differs, combine PC and SP selectors into the same array (e.g., `["pc-class", "sp-class"]`).
+2. Multi-State (Normal vs Sale vs Out-of-Stock): You MUST write logic that handles all provided states.
+3. Custom Properties: If you need to define secondary selector arrays (like `SELECTORS_LOWER_PRICE`), put them in the "extraConstructor" field.
+
+=== OUTPUT FORMAT ===
+ONLY return a SINGLE valid JSON object. No explanations.
+Example format for complex multi-case fields (like price handling sale vs normal):
+{
+  "price": {
+    "selectors": [".pc-regular-price", ".sp-regular-price"],
+    "extraConstructor": "this.SELECTORS_LOWER_PRICE = ['.pc-sale-price', '.sp-sale-price'];",
+    "parseLogic": "const saleElement = this.$.querySelector(this.SELECTORS_LOWER_PRICE.join(','));\nif (saleElement) { return toNumber(saleElement.textContent); }\nreturn toNumber(this.$.querySelector(this.selectors()).textContent);"
+  },
+  "has-stock": {
+    "selectors": [".add-to-cart-btn"]
+  }
+}
+
+=== FIELD-SPECIFIC RULES ===
+
+[code]
+- Definition: Unique product ID/SKU. (Variations might share the same code).
+- Priority Locations: URL part, hidden input attributes, or inside <script>.
+- Default JS: `return element.textContent.trim();`
+- Override condition: If found in an input/meta tag, provide parseLogic (e.g., `return element.value;` or `return element.getAttribute('content');`).
+
+[category-ids]
+- Definition: Current product categories. Priority: Number IDs > Text. (NOTE: Don't confuse this with the category IDs the site already has; we're looking for the category IDs of the CURRENT PRODUCT.)
+- Priority Locations: Breadcrumbs, URL part, hidden attributes, <script>.
+- Default JS inside map loop: `return element.textContent.trim();`
+- Override condition: If ID is in an attribute, provide parseLogic (e.g., `return element.getAttribute('data-id');`).
+
+[description]
+- Definition: Product description and detail tables.
+- Rule: You can provide MULTIPLE selectors to cover all description blocks.
+- No parseLogic needed. Default JS maps over all elements and concatenates textContent.
+
+[image]
+- Definition: Main product image URL.
+- Default JS: `return element.src;`
+- Override condition: If it's a background image or meta tag, provide parseLogic.
+
+[is-limited]
+- Definition: Purchase limit restriction (e.g., "limit to X items per person", "We limit the number of orders").
+- Special Rule: Since this requires checking the text content of the page, output the CSS selector of the text block containing this warning.
+- Default JS: `return false;`
+- Override condition: If warning exists, provide parseLogic: `return true;` (or check text dynamically if needed).
+
+[price]
+- Definition: Tax-included product price.
+- Info: The system has `toNumber(string)` and `toTaxIncluded(string)` functions.
+- Default JS: `return toNumber(element.textContent);`
+- Override condition: If tax (10% or 8%) needs to be manually added, provide parseLogic (e.g., `return toTaxIncluded(toNumber(element.textContent));`).
+
+[max-quantity]
+- Definition: Maximum quantity addable to cart.
+- Default JS: `return element.options[element.options.length - 1].value;`
+- Override condition: If max is defined in an <input> attribute, provide parseLogic: `return element.getAttribute('max');`.
+
+[is-product]
+- Definition: Determines if the page is a PDP.
+- Default JS: `return !!this.$.querySelector(this.selectors());`
+- Rule: Find a unique element that ONLY exists on product detail pages (e.g., a specific add-to-cart form class, or a product-id hidden field) to serve as the boolean checker.
+
+[quantity]
+- Definition: Current selected quantity.
+- Default JS: `return element.value;`
+
+[title]
+- Definition: Product name. Priority: DOM elements (h1, product-title classes).
+- Default JS: `return element.textContent.trim();`
+
+[has-stock]
+- Definition: Determines if product is in stock.
+- Default JS: `return !!this.$.querySelector(this.selectors());`
+- Rule: Provide the selector for the "Add to Cart" button or "In Stock" badge. If the page shows "Sold Out" instead, write a selector that ONLY exists when in stock.
+
+[url]
+- Definition: Product URL. Priority: <link rel="canonical">.
+- Rule: AVOID using `this.$.location.href` as the primary source. Only use it as a fallback when the selector is null.
+- Default JS: `return this.$.location.href;`
+- Override condition: If canonical link is found, provide `parseLogic`: `const element = this.$.querySelector(this.selectors());\nreturn element ? element.href : this.$.location.href;`
+
+[unavailable]
+- Definition: Determines if a product cannot be purchased based on descriptions (e.g., Adult, Digital, Subscription).
+- CRITICAL RULE: If there are NO unavailable states mentioned in the case descriptions, DO NOT output the "unavailable" key in your JSON at all. Skip it entirely.
+- Status Codes (from `../../../../../util/status_code`): `AVAILABLE` (default), `ERR_UNAVAILABLE` (generic), `ERR_ADULT_PRODUCT`, `ERR_DIGITAL_CONTENT`, `ERR_CHILLED_PRODUCT`, `ERR_SELECTION_OPTIONS`.
+- Output requirements for this field (ONLY if unavailable cases exist):
+  1. "imports": A string of comma-separated status codes to import.
+  2. "extraConstructor": Define keyword arrays or selectors.
+  3. "parseLogic": The if/else logic inside `parse()`. Must return the specific ERR_ code or default to `return AVAILABLE;`.
+  4. "extraMethods": The actual helper functions (e.g., `isAdult() { ... }`).
+
+=== OUTPUT FORMAT ===
+ONLY return a SINGLE valid JSON object containing all the fields as keys. Do not include markdown code blocks. No explanations.
+Example format:
+{
+  "code": { "selectors": ["..."] },
+  "category-ids": { "selectors": ["..."], "parseLogic": "return element.getAttribute('data-cat-id');" },
+  "description": { "selectors": ["...", "..."] },
+  "is-limited": { "selectors": [".limit-note"], "parseLogic": "return true;" }
+}
