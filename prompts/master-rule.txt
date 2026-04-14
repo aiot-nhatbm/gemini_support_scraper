@@ -39,6 +39,7 @@ Example format for complex multi-case fields (like price handling sale vs normal
 - Priority Locations: Breadcrumbs, URL part, hidden attributes, <script>.
 - Default JS inside map loop: `return element.textContent.trim();`
 - Override condition: If ID is in an attribute, provide parseLogic (e.g., `return element.getAttribute('data-id');`).
+- CRITICAL: The `parse()` method MUST return a FLAT array of strings/numbers. NEVER return an array of arrays. If using nested maps or querySelectorAll inside a loop, call `.flat()` at the end (e.g., `return [...this.$.querySelectorAll(this.selectors())].map(el => el.getAttribute('data-id')).filter(Boolean);`).
 
 [description]
 - Definition: Product description and detail tables.
@@ -106,7 +107,7 @@ ONLY return a SINGLE valid JSON object containing all the fields as keys. Do not
 Example format:
 {
   "code": { "selectors": ["..."] },
-  "category-ids": { "selectors": ["..."], "parseLogic": "return element.getAttribute('data-cat-id');" },
+  "category-ids": { "selectors": ["..."], "parseLogic": "return [...this.$.querySelectorAll(this.selectors())].map(el => el.getAttribute('data-cat-id')).filter(Boolean);" },
   "description": { "selectors": ["...", "..."] },
   "is-limited": { "selectors": [".limit-note"], "parseLogic": "return true;" }
 }
